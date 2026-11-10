@@ -133,11 +133,11 @@ mergeInto(LibraryManager.library,
 			if (FTEC.aborted)
 				return;
 
-			//do this first in the hope that it'll make firefox a smidge smoother.
-			if (FTEC.dovsync)
-				window.requestAnimationFrame(FTEC.step);
+			//do this first in the hope that it'll make firefox a smidge smoother. (edited to allow for tab switching vsync on)
+			if (FTEC.dovsync && !document.hidden)
+			    FTEC.rafId = window.requestAnimationFrame(FTEC.step);
 			else
-				setTimeout(FTEC.step, 0, performance.now());
+			    FTEC.timerId = setTimeout(FTEC.step, 0, performance.now());
 
 			if (FTEC.xrsession)
 				return;	//keep ticking, cos its safer. :\
@@ -891,6 +891,12 @@ mergeInto(LibraryManager.library,
 		{
 			//don't start it instantly, so we can distinguish between types of errors (emscripten sucks!).
 			setTimeout(FTEC.step, 1, performance.now());
+
+			document.addEventListener('visibilitychange', () => {
+			    cancelAnimationFrame(FTEC.rafId);
+				clearTimeout(FTEC.timerId);
+		    FTEC.step(performance.now());
+		});
 		}
 		else if (Module["close"])
 			Module["close"]();
