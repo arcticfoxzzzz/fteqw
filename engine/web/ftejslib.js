@@ -133,11 +133,16 @@ mergeInto(LibraryManager.library,
 			if (FTEC.aborted)
 				return;
 
-			//do this first in the hope that it'll make firefox a smidge smoother. (edited to allow for tab switching vsync on)
-			if (FTEC.dovsync && !document.hidden)
-			    FTEC.rafId = window.requestAnimationFrame(FTEC.step);
+			//
+			if (FTEC.dovsync)
+			{
+				if (document.hidden)
+					FTEC.hiddenChannel.port2.postMessage(0);
+				else
+					FTEC.rafId = window.requestAnimationFrame(FTEC.step);
+			}
 			else
-			    FTEC.timerId = setTimeout(FTEC.step, 0, performance.now());
+				FTEC.timerId = setTimeout(FTEC.step, 0, performance.now());
 
 			if (FTEC.xrsession)
 				return;	//keep ticking, cos its safer. :\
@@ -892,6 +897,21 @@ mergeInto(LibraryManager.library,
 			//don't start it instantly, so we can distinguish between types of errors (emscripten sucks!).
 			setTimeout(FTEC.step, 1, performance.now());
 
+			FTEC.lastHidden = 0;
+			FTEC.hiddenChannel = new MessageChannel();
+			FTEC.hiddenChannel.port1.onmessage = () => {
+				if (!document.hidden)
+					return;
+				const now = performance.now();
+				if (now - FTEC.lastHidden < 4)
+				{
+					FTEC.hiddenChannel.port2.postMessage(0);
+					return;
+				}
+				FTEC.lastHidden = now;
+				FTEC.step(now);
+			};
+			
 			document.addEventListener('visibilitychange', () => {
 			    cancelAnimationFrame(FTEC.rafId);
 				clearTimeout(FTEC.timerId);
